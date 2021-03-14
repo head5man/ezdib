@@ -37,6 +37,7 @@ extern "C"
 {
 #endif
 
+#include "ezdibfont.h"
 	/// Returns the absolute value of 'n'
 #	define EZD_ABS( n ) ( ( 0 <= (n) ) ? (n) : -(n) )
 
@@ -370,21 +371,33 @@ extern "C"
 
 	// Built in large font
 #	define EZD_FONT_TYPE_LARGE		((unsigned char*)3)
-
+#   define EZD_FONT_ID_FIELD_LEN	16
 	/// Set this flag to invert the font
 #	define EZD_FONT_FLAG_INVERT		0x01
+#	define EZD_FONT_FLAG_SPACING_POS  4
+#   define EZD_FONT_FLAG_SPACING_MASK (0x0f)
+#	define EZD_FONT_FLAG_SPACING(a) (((EZD_FONT_FLAG_SPACING_MASK & (a)) << EZD_FONT_FLAG_SPACING_POS) & 0xff)
+
+	// compares font sizes returns a > b ? [>0] : a < b ? [<0] : [0]
+	int ezd_compare_fonts(HEZDFONT a, HEZDFONT b);
+	// generate EZD_FONT_ID_FIELD_LEN string for font
+	void ezd_font_id_string(char* buffer, HEZDFONT hFont);
+
+	int ezd_font_pixel_size(HEZDFONT font);
 
 	/// Loads a font map
 	/**
 		\param [in] x_pFt		-	Handle to a font map
 		\param [in] x_pFtSize	-	Size of the specified font table
+		\param [in] x_uFlags	-	Flags e.g. extra spacing
+		\param [in] x_pIdent    -   Ident struct pointer
 
 		This function basically just copies the specified
 		font map and creates and index.
 
 		\return Returns a handle to the loaded font
 	*/
-	HEZDFONT ezd_load_font( const void *x_pFt, int x_nFtSize, unsigned int x_uFlags );
+	HEZDFONT ezd_load_font( const void *x_pFt, int x_nFtSize, unsigned int x_uFlags,font_ident_t* x_pIdent);
 
 	/// Releases the specified font
 	void ezd_destroy_font( HEZDFONT x_hFont );
@@ -402,7 +415,7 @@ extern "C"
 		
 		\return A pointer to the glyph or zero if not found
 	*/
-	const char* ezd_find_glyph( HEZDFONT x_pFt, const char ch );
+	const void* ezd_find_glyph(HEZDFONT x_pFt, const unsigned char ch);
 	
 	/// Draws the specified text string into the image
 	/**

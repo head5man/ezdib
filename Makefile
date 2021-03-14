@@ -6,8 +6,17 @@ _END_ := 1
 # Configure
 #-------------------------------------------------------------------
 
-OUTNAME := test_ezdib
-OUTTYPE := exe
+OUTNAME := ezdib
+OUTTYPE := dll
+#CFG_DBG := 0
+
+ifeq ("$(BUILD_VERBOSE)","1")
+Q :=
+vecho = @true
+else
+Q := @
+vecho = @echo
+endif
 
 ifneq ($(findstring debug,$(TGT)),)
 	CFG_DBG := 1
@@ -76,12 +85,13 @@ DEPENDS := $(foreach f,$(CCFILES),$(OBJPATH)/c/$(f:.c=.obj)) \
 
 # Paths tools
 RM := rm -f
-MD := mkdir -p
+MD := mkdir -p -m a=rwx
 
+SYSROOT:=
 # GCC
-PP := $(PR)g++ -c
-CC := $(PR)gcc -c
-LD := $(PR)g++
+PP := $(PR)g++ $(SYSROOT) -c
+CC := $(PR)gcc $(SYSROOT) -c
+LD := $(PR)g++ $(SYSROOT)
 AR := $(PR)ar -cr
 RC := $(PR)windres
 
@@ -98,7 +108,8 @@ else
 endif
 
 ifeq ($(OUTTYPE),dll)
-	LD_FLAGS := $(LD_FLAGS) -shared -module
+	LD_FLAGS := $(LD_FLAGS) -shared
+	#LD_FLAGS := $(LD_FLAGS) -shared -module
 else
 	ifdef CFG_STATIC
 	LD_FLAGS := $(LD_FLAGS) -static
@@ -125,12 +136,10 @@ endif
 # Build
 #-------------------------------------------------------------------
 
-# Create 'c++' object file path
-$(OBJPATH)/cpp :
-	- $(MD) $@
-
+# Create $(BINPATH)
 # Create 'c' object file path
-$(OBJPATH)/c :
+# Create 'c++' object file path
+BINPATH $(OBJPATH)/cpp $(OBJPATH)/c :
 	- $(MD) $@
 
 # How to build a 'c++' file
@@ -139,12 +148,14 @@ $(OBJPATH)/cpp/%.obj : %.cpp $(OBJPATH)/cpp
 
 # How to build a 'c' file
 $(OBJPATH)/c/%.obj : %.c $(OBJPATH)/c
-	$(CC) $< $(CC_FLAGS) -o $@
+	$(vecho) "-> $@"
+	$(Q)$(CC) $< $(CC_FLAGS) -o $@
 
 # Build the output
 $(OUTFILE) : $(DEPENDS)
 	- $(RM) $@
-	$(LD) $(LD_FLAGS) $(DEPENDS) -o "$@"
+	$(vecho) "-> $@"
+	$(Q)$(LD) $(LD_FLAGS) $(DEPENDS) -o "$@"
 
 # Default target
 all : $(OUTFILE)

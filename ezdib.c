@@ -31,109 +31,7 @@
 //----------------------------------------------------------------*/
 
 #include "ezdib.h"
-
-//------------------------------------------------------------------
-// Config
-//------------------------------------------------------------------
-
-/// Enable static fonts
-/**
-	This will prevent the creation of a font index, so font drawing
-	will be slightly slower.  Unless you are on a memory constrained
-	system, you will probably prefer to leave this on.
-*/
-// #define EZD_STATIC_FONTS
-
-/// Define if you do not have string.h
-// #define EZD_NO_MEMCPY
-
-/// Define if you do not have malloc, calloc, and free,
-/**
-	ezd_flood_file() will not work.
-*/
-// #define EZD_NO_ALLOCATION
-
-/// If you have no file handling routines
-/**
-	ezd_save() will not work
-*/
-// #define EZD_NO_FILES
-
-/// If you do not have math.h.  Sorry, you won't get circles
-/**
-	ezd_circle() and ezd_arc() will not work
-*/
-// #define EZD_NO_MATH
-
-// Debugging
-#if defined( _DEBUG )
-#	define EZD_DEBUG
-#endif
-
-//------------------------------------------------------------------
-// Internal config
-//------------------------------------------------------------------
-
-#if !defined( EZD_NO_FILES )
-#	include <stdio.h>
-#endif
-
-// malloc, calloc, free
-#if !defined( EZD_NO_ALLOCATION )
-#	if !defined( EZD_NO_STDLIB )
-#		include <stdlib.h>
-#	else
-		// No debug functions without stdlib
-#		undef EZD_DEBUG
-#	endif
-#	if !defined( EZD_malloc )
-#		define EZD_malloc malloc
-#	endif
-#	if !defined( EZD_calloc )
-#		define EZD_calloc calloc
-#	endif
-#	if !defined( EZD_free )
-#		define EZD_free free
-#	endif
-#else
-	// Must use static fonts if no allocation routines
-#	define EZD_STATIC_FONTS
-	// Assume our debug functions won't work either
-#	undef EZD_DEBUG
-#endif
-
-// sin(), cos()
-#if !defined( EZD_NO_MATH )
-#	include <math.h>
-#endif
-
-// memcpy() and memset() substitutes
-#if defined( EZD_NO_MEMCPY )
-#	define EZD_MEMCPY ezd_memcpy
-#	define EZD_MEMSET ezd_memset
-static void ezd_memcpy( char *pDst, const char *pSrc, int sz )
-{	while ( 0 < sz-- )
-		*(char*)pDst++ = *(char*)pSrc++;
-}
-static void ezd_memset( char *pDst, int v, int sz )
-{	while ( 0 < sz-- )
-		*(char*)pDst++ = (char)v;
-}
-#else
-#	include <string.h>
-#	define EZD_MEMCPY memcpy
-#	define EZD_MEMSET memset
-#endif
-
-#if defined( EZD_DEBUG )
-#	define _MSG( m ) printf( "\n%s(%d): %s() : %s\n", __FILE__, __LINE__, __FUNCTION__, m )
-#	define _SHOW( f, ... ) printf( "\n%s(%d): %s() : " f "\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ )
-#	define _ERR( r, m ) ( _MSG( m ), r )
-#else
-#	define _MSG( m )
-#	define _SHOW( ... )
-#	define _ERR( r, m ) ( r )
-#endif
+#include "ezdibconf.h"
 
 //------------------------------------------------------------------
 // Data structures
@@ -241,24 +139,6 @@ typedef struct _SImageData
 	unsigned char			pBuffer[ 4 ];
 
 } SImageData;
-
-#if !defined( EZD_STATIC_FONTS )
-
-// This structure contains the memory image
-typedef struct _SFontData
-{
-	/// Font flags
-	unsigned int			uFlags;
-
-	/// Font index pointers
-	const char				*pIndex[ 256 ];
-
-	/// Font bitmap data
-	char					pGlyph[ 1 ];
-
-} SFontData;
-
-#endif
 
 #if !defined( EZD_NOPACK )
 #	pragma pack( pop )
@@ -769,7 +649,8 @@ int ezd_line( HEZDIMAGE x_hDib, int x1, int y1, int x2, int y2, int x_col )
 	// Check for user callback function
 	if ( p->pfSetPixel )
 	{
-		int mx = 0, my = 0;
+		int mx = 0, my = 0, c = EZD_COMPARE_THRESHOLD( x_col, p->colThreshold );
+		static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 		// Draw the line
 		while ( !done )
@@ -1397,417 +1278,16 @@ int ezd_flood_fill( HEZDIMAGE x_hDib, int x, int y, int x_bcol, int x_col )
 #endif
 }
 
-// A small font map
-static const char font_map_small [] =
-{
-	// Default glyph
-	'.', 1, 6,	0x08,
-
-	// Tab width
-	'\t', 8, 0,
-
-	// Space
-	' ', 3, 0,
-
-	'!', 1, 6,	0xea,
-	'+', 3, 6,	0x0b, 0xa0, 0x00,
-	'-', 3, 6,	0x03, 0x80, 0x00,
-	'/', 3, 6,	0x25, 0x48, 0x00,
-	'*', 3, 6,	0xab, 0xaa, 0x00,
-	'@', 4, 6,	0x69, 0xbb, 0x87,
-	':', 1, 6,	0x52,
-	'=', 3, 6,	0x1c, 0x70, 0x00,
-	'?', 4, 6,	0x69, 0x24, 0x04,
-	'%', 3, 6,	0x85, 0x28, 0x40,
-	'^', 3, 6,	0x54, 0x00, 0x00,
-	'#', 5, 6,	0x57, 0xd5, 0xf5, 0x00,
-	'$', 5, 6,	0x23, 0xe8, 0xe2, 0xf8,
-	'~', 4, 6,	0x05, 0xa0, 0x00,
-
-	'0', 3, 6,	0x56, 0xd4, 0x31,
-	'1', 2, 6,	0xd5, 0x42,
-	'2', 4, 6,	0xe1, 0x68, 0xf0,
-	'3', 4, 6,	0xe1, 0x61, 0xe0,
-	'4', 4, 6,	0x89, 0xf1, 0x10,
-	'5', 4, 6,	0xf8, 0xe1, 0xe0,
-	'6', 4, 6,	0x78, 0xe9, 0x60,
-	'7', 4, 6,	0xf1, 0x24, 0x40,
-	'8', 4, 6,	0x69, 0x69, 0x60,
-	'9', 4, 6,	0x69, 0x71, 0x60,
-
-	'A', 4, 6,	0x69, 0xf9, 0x90,
-	'B', 4, 6,	0xe9, 0xe9, 0xe0,
-	'C', 4, 6,	0x78, 0x88, 0x70,
-	'D', 4, 6,	0xe9, 0x99, 0xe0,
-	'E', 4, 6,	0xf8, 0xe8, 0xf0,
-	'F', 4, 6,	0xf8, 0xe8, 0x80,
-	'G', 4, 6,	0x78, 0xb9, 0x70,
-	'H', 4, 6,	0x99, 0xf9, 0x90,
-	'I', 3, 6,	0xe9, 0x2e, 0x00,
-	'J', 4, 6,	0xf2, 0x2a, 0x40,
-	'K', 4, 6,	0x9a, 0xca, 0x90,
-	'L', 3, 6,	0x92, 0x4e, 0x00,
-	'M', 5, 6,	0x8e, 0xeb, 0x18, 0x80,
-	'N', 4, 6,	0x9d, 0xb9, 0x90,
-	'O', 4, 6,	0x69, 0x99, 0x60,
-	'P', 4, 6,	0xe9, 0xe8, 0x80,
-	'Q', 4, 6,	0x69, 0x9b, 0x70,
-	'R', 4, 6,	0xe9, 0xea, 0x90,
-	'S', 4, 6,	0x78, 0x61, 0xe0,
-	'T', 3, 6,	0xe9, 0x24, 0x00,
-	'U', 4, 6,	0x99, 0x99, 0x60,
-	'V', 4, 6,	0x99, 0x96, 0x60,
-	'W', 5, 6,	0x8c, 0x6b, 0x55, 0x00,
-	'X', 4, 6,	0x99, 0x69, 0x90,
-	'Y', 3, 6,	0xb5, 0x24, 0x00,
-	'Z', 4, 6,	0xf2, 0x48, 0xf0,
-
-	'a', 4, 6,	0x69, 0xf9, 0x90,
-	'b', 4, 6,	0xe9, 0xe9, 0xe0,
-	'c', 4, 6,	0x78, 0x88, 0x70,
-	'd', 4, 6,	0xe9, 0x99, 0xe0,
-	'e', 4, 6,	0xf8, 0xe8, 0xf0,
-	'f', 4, 6,	0xf8, 0xe8, 0x80,
-	'g', 4, 6,	0x78, 0xb9, 0x70,
-	'h', 4, 6,	0x99, 0xf9, 0x90,
-	'i', 3, 6,	0xe9, 0x2e, 0x00,
-	'j', 4, 6,	0xf2, 0x2a, 0x40,
-	'k', 4, 6,	0x9a, 0xca, 0x90,
-	'l', 3, 6,	0x92, 0x4e, 0x00,
-	'm', 5, 6,	0x8e, 0xeb, 0x18, 0x80,
-	'n', 4, 6,	0x9d, 0xb9, 0x90,
-	'o', 4, 6,	0x69, 0x99, 0x60,
-	'p', 4, 6,	0xe9, 0xe8, 0x80,
-	'q', 4, 6,	0x69, 0x9b, 0x70,
-	'r', 4, 6,	0xe9, 0xea, 0x90,
-	's', 4, 6,	0x78, 0x61, 0xe0,
-	't', 3, 6,	0xe9, 0x24, 0x00,
-	'u', 4, 6,	0x99, 0x99, 0x60,
-	'v', 4, 6,	0x99, 0x96, 0x60,
-	'w', 5, 6,	0x8c, 0x6b, 0x55, 0x00,
-	'x', 4, 6,	0x99, 0x69, 0x90,
-	'y', 3, 6,	0xb5, 0x24, 0x00,
-	'z', 4, 6,	0xf2, 0x48, 0xf0,
-
-	0,
-};
-
-// A medium font map
-static const char font_map_medium [] =
-{
-	// Default glyph
-	'.', 2, 10,	0x00, 0x3c, 0x00,
-
-	// Tab width
-	'\t', 10, 0,
-
-	// Space
-	' ', 2, 0,
-
-	'!', 1, 10,	0xf6, 0x00,
-	'(', 3, 10,	0x2a, 0x48, 0x88, 0x00,
-	')', 3, 10,	0x88, 0x92, 0xa0, 0x00,
-	',', 2, 10,	0x00, 0x16, 0x00,
-	'-', 3, 10,	0x00, 0x70, 0x00, 0x00,
-	'/', 3, 10,	0x25, 0x25, 0x20, 0x00,
-	'@', 6, 10,	0x7a, 0x19, 0x6b, 0x9a, 0x07, 0x80, 0x00, 0x00,
-	'$', 5, 10,	0x23, 0xab, 0x47, 0x16, 0xae, 0x20, 0x00,
-	'#', 6, 10,	0x49, 0x2f, 0xd2, 0xfd, 0x24, 0x80, 0x00, 0x00,
-	'%', 7, 10,	0x43, 0x49, 0x20, 0x82, 0x49, 0x61, 0x00, 0x00, 0x00,
-	':', 2, 10,	0x3c, 0xf0, 0x00,
-	'^', 3, 10,	0x54, 0x00, 0x00, 0x00,
-	'~', 5, 10,	0x00, 0x11, 0x51, 0x00, 0x00, 0x00, 0x00,
-
-	'0', 5, 10,	0x74, 0x73, 0x59, 0xc5, 0xc0, 0x00, 0x00,
-	'1', 3, 10,	0xc9, 0x24, 0xb8, 0x00,
-	'2', 5, 10,	0x74, 0x42, 0xe8, 0x43, 0xe0, 0x00, 0x00,
-	'3', 5, 10,	0x74, 0x42, 0xe0, 0xc5, 0xc0, 0x00, 0x00,
-	'4', 5, 10,	0x11, 0x95, 0x2f, 0x88, 0x40, 0x00, 0x00,
-	'5', 5, 10,	0xfc, 0x3c, 0x10, 0xc5, 0xc0, 0x00, 0x00,
-	'6', 5, 10,	0x74, 0x61, 0xe8, 0xc5, 0xc0, 0x00, 0x00,
-	'7', 5, 10,	0xfc, 0x44, 0x42, 0x10, 0x80, 0x00, 0x00,
-	'8', 5, 10,	0x74, 0x62, 0xe8, 0xc5, 0xc0, 0x00, 0x00,
-	'9', 5, 10,	0x74, 0x62, 0xf0, 0xc5, 0xc0, 0x00, 0x00,
-
-	'A', 6, 10,	0x31, 0x28, 0x7f, 0x86, 0x18, 0x40, 0x00, 0x00,
-	'B', 6, 10,	0xfa, 0x18, 0x7e, 0x86, 0x1f, 0x80, 0x00, 0x00,
-	'C', 6, 10,	0x7a, 0x18, 0x20, 0x82, 0x17, 0x80, 0x00, 0x00,
-	'D', 6, 10,	0xfa, 0x18, 0x61, 0x86, 0x1f, 0x80, 0x00, 0x00,
-	'E', 6, 10,	0xfe, 0x08, 0x3c, 0x82, 0x0f, 0xc0, 0x00, 0x00,
-	'F', 6, 10,	0xfe, 0x08, 0x3c, 0x82, 0x08, 0x00, 0x00, 0x00,
-	'G', 6, 10,	0x7a, 0x18, 0x27, 0x86, 0x17, 0xc0, 0x00, 0x00,
-	'H', 6, 10,	0x86, 0x18, 0x7f, 0x86, 0x18, 0x40, 0x00, 0x00,
-	'I', 3, 10,	0xe9, 0x24, 0xb8, 0x00,
-	'J', 6, 10,	0xfc, 0x41, 0x04, 0x12, 0x46, 0x00, 0x00, 0x00,
-	'K', 5, 10,	0x8c, 0xa9, 0x8a, 0x4a, 0x20, 0x00, 0x00,
-	'L', 4, 10,	0x88, 0x88, 0x88, 0xf0, 0x00,
-	'M', 6, 10,	0x87, 0x3b, 0x61, 0x86, 0x18, 0x40, 0x00, 0x00,
-	'N', 5, 10,	0x8e, 0x6b, 0x38, 0xc6, 0x20, 0x00, 0x00,
-	'O', 6, 10,	0x7a, 0x18, 0x61, 0x86, 0x17, 0x80, 0x00, 0x00,
-	'P', 5, 10,	0xf4, 0x63, 0xe8, 0x42, 0x00, 0x00, 0x00,
-	'Q', 6, 10,	0x7a, 0x18, 0x61, 0x86, 0x57, 0x81, 0x00, 0x00,
-	'R', 5, 10,	0xf4, 0x63, 0xe8, 0xc6, 0x20, 0x00, 0x00,
-	'S', 6, 10,	0x7a, 0x18, 0x1e, 0x06, 0x17, 0x80, 0x00, 0x00,
-	'T', 3, 10,	0xe9, 0x24, 0x90, 0x00,
-	'U', 6, 10,	0x86, 0x18, 0x61, 0x86, 0x17, 0x80, 0x00, 0x00,
-	'V', 6, 10,	0x86, 0x18, 0x61, 0x85, 0x23, 0x00, 0x00, 0x00,
-	'W', 7, 10,	0x83, 0x06, 0x4c, 0x99, 0x35, 0x51, 0x00, 0x00, 0x00,
-	'X', 5, 10,	0x8c, 0x54, 0x45, 0x46, 0x20, 0x00, 0x00,
-	'Y', 5, 10,	0x8c, 0x54, 0x42, 0x10, 0x80, 0x00, 0x00,
-	'Z', 6, 10,	0xfc, 0x10, 0x84, 0x21, 0x0f, 0xc0, 0x00, 0x00,
-
-	'a', 4, 10,	0x00, 0x61, 0x79, 0x70, 0x00,
-	'b', 4, 10,	0x88, 0xe9, 0x99, 0xe0, 0x00,
-	'c', 4, 10,	0x00, 0x78, 0x88, 0x70, 0x00,
-	'd', 4, 10,	0x11, 0x79, 0x99, 0x70, 0x00,
-	'e', 4, 10,	0x00, 0x69, 0xf8, 0x60, 0x00,
-	'f', 4, 10,	0x25, 0x4e, 0x44, 0x40, 0x00,
-	'g', 4, 10,	0x00, 0x79, 0x99, 0x71, 0x60,
-	'h', 4, 10,	0x88, 0xe9, 0x99, 0x90, 0x00,
-	'i', 1, 10,	0xbe, 0x00,
-	'j', 2, 10,	0x04, 0x55, 0x80,
-	'k', 4, 10,	0x89, 0xac, 0xca, 0x90, 0x00,
-	'l', 3, 10,	0xc9, 0x24, 0x98, 0x00,
-	'm', 5, 10,	0x00, 0x15, 0x5a, 0xd6, 0x20, 0x00, 0x00,
-	'n', 4, 10,	0x00, 0xe9, 0x99, 0x90, 0x00,
-	'o', 4, 10,	0x00, 0x69, 0x99, 0x60, 0x00,
-	'p', 4, 10,	0x00, 0xe9, 0x99, 0xe8, 0x80,
-	'q', 4, 10,	0x00, 0x79, 0x97, 0x11, 0x10,
-	'r', 3, 10,	0x02, 0xe9, 0x20, 0x00,
-	's', 4, 10,	0x00, 0x78, 0x61, 0xe0, 0x00,
-	't', 3, 10,	0x4b, 0xa4, 0x88, 0x00,
-	'u', 4, 10,	0x00, 0x99, 0x99, 0x70, 0x00,
-	'v', 4, 10,	0x00, 0x99, 0x99, 0x60, 0x00,
-	'w', 5, 10,	0x00, 0x23, 0x1a, 0xd5, 0x40, 0x00, 0x00,
-	'x', 5, 10,	0x00, 0x22, 0xa2, 0x2a, 0x20, 0x00, 0x00,
-	'y', 4, 10,	0x00, 0x99, 0x99, 0x71, 0x60,
-	'z', 4, 10,	0x00, 0xf1, 0x24, 0xf0, 0x00,
-
-	0,
-
-};
-
-const char* ezd_next_glyph( const char* pGlyph )
-{
-	int sz;
-
-	// Last glyph?
-	if ( !pGlyph || !*pGlyph )
-		return 0;
-
-	// Glyph size in bits
-	sz = pGlyph[ 1 ] * pGlyph[ 2 ];
-
-	// Return a pointer to the next glyph
-	return &pGlyph[ 3 + ( ( sz & 0x07 ) ? ( ( sz >> 3 ) + 1 ) : sz >> 3 ) ];
-}
-
-const char* ezd_find_glyph( HEZDFONT x_pFt, const char ch )
-{
-#if !defined( EZD_STATIC_FONTS )
-
-		SFontData *f = (SFontData*)x_pFt;
-
-		// Ensure valid font pointer
-		if ( !f )
-			return 0;
-
-		// Get a pointer to the glyph
-		return f->pIndex[ (unsigned int)ch & 0xff ];
-#else
-
-	const char* pGlyph = (const char*)x_pFt;
-
-	// Find the glyph
-	while ( pGlyph && *pGlyph )
-		if ( ch == *pGlyph )
-			return pGlyph;
-		else
-			pGlyph = ezd_next_glyph( pGlyph );
-
-	// First glyph is the default
-	return (const char*)x_pFt;
-
-#endif
-}
-
-
-HEZDFONT ezd_load_font( const void *x_pFt, int x_nFtSize, unsigned int x_uFlags )
-{
-#if !defined( EZD_STATIC_FONTS )
-
-	int i, sz;
-	SFontData *p;
-	const char *pGlyph, *pFt = (const char*)x_pFt;
-
-	// Font parameters
-	if ( !pFt )
-		return _ERR( (HEZDFONT)0, "Invalid parameters" );
-
-	// Check for built in small font
-	if ( (const char*)EZD_FONT_TYPE_SMALL == pFt )
-		pFt = font_map_small,  x_nFtSize = sizeof( font_map_small );
-
-	// Check for built in large font
-	else if ( (const char*)EZD_FONT_TYPE_MEDIUM == pFt )
-		pFt = font_map_medium, x_nFtSize = sizeof( font_map_medium );
-
-	// Check for built in large font
-	else if ( (const char*)EZD_FONT_TYPE_LARGE == pFt )
-		return 0;
-
-	/// Null terminated font buffer?
-	if ( 0 >= x_nFtSize )
-	{	x_nFtSize = 0;
-		while ( pFt[ x_nFtSize ] )
-		{	sz = pFt[ x_nFtSize + 1 ] * pFt[ x_nFtSize + 2 ];
-			x_nFtSize += 3 + ( ( sz & 0x07 ) ? ( ( sz >> 3 ) + 1 ) : sz >> 3 );
-		} // end while
-	} // end if
-
-	// Sanity check
-	if ( 0 >= x_nFtSize )
-		return _ERR( (HEZDFONT)0, "Empty font table" );
-
-	// Allocate space for font buffer
-	p = (SFontData*)EZD_malloc( sizeof( SFontData ) + x_nFtSize );
-	if ( !p )
-		return 0;
-
-	// Copy the font bitmaps
-	EZD_MEMCPY( p->pGlyph, pFt, x_nFtSize );
-
-	// Save font flags
-	p->uFlags = x_uFlags;
-
-	// Use the first character as the default glyph
-	for( i = 0; i < 256; i++ )
-		p->pIndex[ i ] = p->pGlyph;
-
-	// Index the glyphs
-	pGlyph = p->pGlyph;
-	while ( pGlyph && *pGlyph )
-		p->pIndex[ (unsigned int)*pGlyph & 0xff ] = pGlyph,
-		pGlyph = ezd_next_glyph( pGlyph );
-
-	// Return the font handle
-	return (HEZDFONT)p;
-
-#else
-
-	// Convert type
-	const unsigned char *pFt = (const unsigned char*)x_pFt;
-
-	// Font parameters
-	if ( !pFt )
-		return _ERR( (HEZDFONT)0, "Invalid parameters" );
-
-	// Check for built in small font
-	if ( EZD_FONT_TYPE_SMALL == pFt )
-		return (HEZDFONT)font_map_small;
-
-	// Check for built in large font
-	else if ( EZD_FONT_TYPE_MEDIUM == pFt )
-		return (HEZDFONT)font_map_medium;
-
-	// Check for built in large font
-	else if ( EZD_FONT_TYPE_LARGE == pFt )
-		return 0;
-
-	// Just use the users raw font table pointer
-	else
-		return (HEZDFONT)x_pFt;
-
-#endif
-}
-
-/// Releases the specified font
-void ezd_destroy_font( HEZDFONT x_hFont )
-{
-#if !defined( EZD_STATIC_FONTS )
-
-	if ( x_hFont )
-		EZD_free( (SFontData*)x_hFont );
-
-#endif
-}
-
-int ezd_text_size( HEZDFONT x_hFont, const char *x_pText, int x_nTextLen, int *pw, int *ph )
-{
-	int i, w, h, lw = 0, lh = 0;
-	const char *pGlyph;
-
-	// Sanity check
-	if ( !x_hFont || !pw || !ph )
-		return _ERR( 0, "Invalid parameters" );
-
-	// Set all sizes to zero
-	*pw = *ph = 0;
-
-	// For each character in the string
-	for ( i = 0; i < x_nTextLen || ( 0 > x_nTextLen && x_pText[ i ] ); i++ )
-	{
-		// Get the specified glyph
-		pGlyph = ezd_find_glyph( x_hFont, x_pText[ i ] );
-
-		switch( x_pText[ i ] )
-		{
-			// CR
-			case '\r' :
-
-				// Reset width, and grab current height
-				w = 0; //h = lh;
-				i += ezd_text_size( x_hFont, &x_pText[ i + 1 ], x_nTextLen - i - 1, &w, &lh );
-
-				// Take the largest width / height
-				*pw = ( *pw > w ) ? *pw : w;
-				//lh = ( lh > h ) ? lh : h;
-
-				break;
-
-			// LF
-			case '\n' :
-
-				// New line
-				w = 0; h = 0;
-				i += ezd_text_size( x_hFont, &x_pText[ i + 1 ], x_nTextLen - i - 1, &w, &h );
-
-				// Take the longest width
-				*pw = ( *pw > w ) ? *pw : w;
-
-				// Add the height
-				*ph += h;
-
-				break;
-
-			// Regular character
-			default :
-
-				// Accumulate width / height
-				lw += !lw ? pGlyph[ 1 ] : ( 2 + pGlyph[ 1 ] ),
-				lh = ( ( pGlyph[ 2 ] > lh ) ? pGlyph[ 2 ] : lh );
-
-				break;
-
-		} // end switch
-
-	} // end for
-
-	// Take the longest width
-	*pw = ( *pw > lw ) ? *pw : lw;
-
-	// Add our line height
-	*ph += lh;
-
-	return i;
-}
-
-static void ezd_draw_bmp_cb( unsigned char *pImg, int x, int y, int sw, int pw,
-							 int inv, int bw, int bh, const char *pBmp,
+static void ezd_draw_bmp_cb( unsigned char *pImg, int x, int y, int sw, int pw, 
+							 int inv, int bw, int bh, const unsigned char *pBmp, 
 							 int col, int ch, t_ezd_set_pixel pf, void *pUser )
 {
 	int w, h, lx = x;
 	unsigned char m = 0x80;
+	unsigned char r = col & 0xff;
+	unsigned char g = ( col >> 8 ) & 0xff;
+	unsigned char b = ( col >> 16 ) & 0xff;
+	static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 	// Draw the glyph
 	for( h = 0; h < bh; h++ )
@@ -1842,11 +1322,14 @@ static void ezd_draw_bmp_cb( unsigned char *pImg, int x, int y, int sw, int pw,
 
 }
 
-static void ezd_draw_bmp_1( unsigned char *pImg, int x, int y, int sw, int pw,
-							int inv, int bw, int bh, const char *pBmp, int col )
+static void ezd_draw_bmp_1( unsigned char *pImg, int x, int y, int sw, int pw, 
+							int inv, int bw, int bh, const unsigned char *pBmp, int col )
 {
 	int w, h, lx = x;
 	unsigned char m = 0x80;
+	unsigned char r = col & 0xff;
+	unsigned char g = ( col >> 8 ) & 0xff;
+	unsigned char b = ( col >> 16 ) & 0xff;
 	static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 	// Draw the glyph
@@ -1888,7 +1371,7 @@ static void ezd_draw_bmp_1( unsigned char *pImg, int x, int y, int sw, int pw,
 }
 
 static void ezd_draw_bmp_24( unsigned char *pImg, int sw, int pw, int inv,
-							 int bw, int bh, const char *pBmp, int col )
+							 int bw, int bh, const unsigned char *pBmp, int col )
 {
 	int w, h;
 	unsigned char m = 0x80;
@@ -1929,7 +1412,7 @@ static void ezd_draw_bmp_24( unsigned char *pImg, int sw, int pw, int inv,
 }
 
 static void ezd_draw_bmp_32( unsigned char *pImg, int sw, int pw, int inv,
-							 int bw, int bh, const char *pBmp, int col )
+							 int bw, int bh, const unsigned char *pBmp, int col )
 {
 	int w, h;
 	unsigned char m = 0x80;
@@ -1966,92 +1449,102 @@ static void ezd_draw_bmp_32( unsigned char *pImg, int sw, int pw, int inv,
 
 }
 
-int ezd_text( HEZDIMAGE x_hDib, HEZDFONT x_hFont, const char *x_pText, int x_nTextLen, int x, int y, int x_col )
+int ezd_text(HEZDIMAGE x_hDib, HEZDFONT x_hFont, const char *x_pText, int x_nTextLen, int x, int y, int x_col)
 {
 	int w, h, sw, pw, inv, i, mh = 0, lx = x;
-	const char *pGlyph;
+	const tGlyph *_pGlyph;
 	SImageData *p = (SImageData*)x_hDib;
 
 #if !defined( EZD_STATIC_FONTS )
 	SFontData *f = (SFontData*)x_hFont;
-	if ( !f )
-		return _ERR( 0, "Invalid parameters" );
+	if (!f)
+		return _ERR(0, "Invalid parameters");
 #endif
 
 	// Sanity checks
-	if ( !p || sizeof( SBitmapInfoHeader ) != p->bih.biSize
-		 || ( !p->pImage && !p->pfSetPixel ) )
-		return _ERR( 0, "Invalid parameters" );
+	if (!p || sizeof(SBitmapInfoHeader) != p->bih.biSize
+		|| (!p->pImage && !p->pfSetPixel))
+		return _ERR(0, "Invalid parameters");
 
 	// Calculate image metrics
-	w = EZD_ABS( p->bih.biWidth );
-	h = EZD_ABS( p->bih.biHeight );
+	w = EZD_ABS(p->bih.biWidth);
+	h = EZD_ABS(p->bih.biHeight);
 
 	// Invert font?
-	inv = ( ( 0 < p->bih.biHeight ? 1 : 0 )
+	inv = ((0 < p->bih.biHeight ? 1 : 0)
 #if !defined( EZD_STATIC_FONTS )
-		  ^ ( ( f->uFlags & EZD_FONT_FLAG_INVERT ) ? 1 : 0 )
+		^ ((f->uFlags & EZD_FONT_FLAG_INVERT) ? 1 : 0)
 #endif
-		  ) ? -1 : 1;
+		) ? -1 : 1;
 
 	// Pixel and scan width
-	pw = EZD_FITTO( p->bih.biBitCount, 8 );
-	sw = EZD_SCANWIDTH( w, p->bih.biBitCount, 4 );
+	pw = EZD_FITTO(p->bih.biBitCount, 8);
+	sw = EZD_SCANWIDTH(w, p->bih.biBitCount, 4);
 
 	// For each character in the string
-	for ( i = 0; i < x_nTextLen || ( 0 > x_nTextLen && x_pText[ i ] ); i++ )
+	for (i = 0; i < x_nTextLen || (0 > x_nTextLen && x_pText[i]); i++)
 	{
 		// Get the specified glyph
-		pGlyph = ezd_find_glyph( x_hFont, x_pText[ i ] );
+		_pGlyph = ezd_find_glyph(x_hFont, x_pText[i]);
 
 		// CR, just go back to starting x pos
-		if ( '\r' == x_pText[ i ] )
+		if ('\r' == x_pText[i])
 			lx = x;
 
 		// LF - Back to starting x and next line
-		else if ( '\n' == x_pText[ i ] )
-			lx = x, y += inv * ( 1 + mh ), mh = 0;
+		else if ('\n' == x_pText[i])
+			lx = x, y += inv * (1 + mh), mh = 0;
 
 		// Other characters
 		else
 		{
+			int gWidth = (int)(_pGlyph->bbox.width) + (int)(_pGlyph->bbox.xoffset);
+			int gHeight = (int)(_pGlyph->bbox.height) + (int)(_pGlyph->bbox.yoffset);
+			int baselineAKAOriginY = (int)(f->bbox.height) + (int)(f->bbox.yoffset);
+			int bitmapTop = baselineAKAOriginY - gHeight;
+			_SHOW("Glyph '%c' (w,h):%d,%d bl:%d top:%d\n", _pGlyph->encoding, gWidth, gHeight, baselineAKAOriginY, bitmapTop);
 			// Draw this glyph if it's completely on the screen
-			if ( pGlyph[ 1 ] && pGlyph[ 2 ]
-				 && 0 <= lx && ( lx + pGlyph[ 1 ] ) < w
-				 && 0 <= y && ( y + pGlyph[ 2 ] ) < h )
+			// Let user pfSetPixel to draw outside
+			if ((gWidth && gHeight) && ((p->pfSetPixel != NULL) ||
+				(0 <= lx && (lx + gWidth) < w
+				&& 0 <= y && (y + f->bbox.height) <= h)))
 			{
+				int originX = lx + (int)(_pGlyph->bbox.xoffset);
+				int originY = y + bitmapTop;
 				// Check for user callback function
-				if ( p->pfSetPixel )
-					ezd_draw_bmp_cb( p->pImage, lx, y, sw, pw, inv,
-									 pGlyph[ 1 ], pGlyph[ 2 ], &pGlyph[ 3 ],
-									 x_col, x_pText[ i ], p->pfSetPixel, p->pSetPixelUser );
+				if (p->pfSetPixel)
+					ezd_draw_bmp_cb(p->pImage, originX, originY, sw, pw, inv,
+						_pGlyph->bbox.width, _pGlyph->bbox.height, (const unsigned char*)(_pGlyph + 1), // -> not pointing to next glyph but the data
+						x_col, x_pText[i], p->pfSetPixel, p->pSetPixelUser);
 
-				else switch( p->bih.biBitCount )
+				else switch (p->bih.biBitCount)
 				{
-					case 1 :
-						ezd_draw_bmp_1( p->pImage, lx, y, sw, pw, inv,
-										pGlyph[ 1 ], pGlyph[ 2 ], &pGlyph[ 3 ],
-										EZD_COMPARE_THRESHOLD( x_col, p->colThreshold ) );
-						break;
+				case 1:
+					ezd_draw_bmp_1(p->pImage, originX, originY, sw, pw, inv,
+						_pGlyph->bbox.width, _pGlyph->bbox.height, (const unsigned char*)(_pGlyph + 1), // -> not pointing to next glyph but the data
+						EZD_COMPARE_THRESHOLD(x_col, p->colThreshold));
+					break;
 
-					case 24 :
-						ezd_draw_bmp_24( &p->pImage[ y * sw + lx * pw ], sw, pw, inv,
-										 pGlyph[ 1 ], pGlyph[ 2 ], &pGlyph[ 3 ], x_col );
-						break;
+				case 24:
+					ezd_draw_bmp_24(&p->pImage[y * sw + lx * pw], sw, pw, inv,
+						_pGlyph->bbox.width, _pGlyph->bbox.height, (const unsigned char*)(_pGlyph + 1), // -> not pointing to next glyph but the data
+						x_col);
+					break;
 
-					case 32 :
-						ezd_draw_bmp_32( &p->pImage[ y * sw + lx * pw ], sw, pw, inv,
-										 pGlyph[ 1 ], pGlyph[ 2 ], &pGlyph[ 3 ], x_col );
-						break;
+				case 32:
+					ezd_draw_bmp_32(&p->pImage[y * sw + lx * pw], sw, pw, inv,
+						_pGlyph->bbox.width, _pGlyph->bbox.height, (const unsigned char*)(_pGlyph + 1), // -> not pointing to next glyph but the data
+						x_col);
+					break;
 				} // end switch
 
 			} // end if
 
-			// Next character position
-			lx += 2 + pGlyph[ 1 ];
+			  // Next character position
+			lx += f->spacing + _pGlyph->xoffsetnext;
 
 			// Track max height
-			mh = ( pGlyph[ 2 ] > mh ) ? pGlyph[ 2 ] : mh;
+			mh = (gHeight > mh) ? gHeight : mh;
 
 		} // end else
 
