@@ -25,5 +25,7 @@ make TGT=windows-static-debug PR=i686-pc-mingw32-
 // Notes
 //------------------------------------------------------------------
 
-I learned about this project from article authored by [https://www.codeproject.com/Members/Robert-Umbehant]
+I learned about this project from article authored by 
+[https://www.codeproject.com/Members/Robert-Umbehant]
+
 https://www.codeproject.com/Articles/363908/Simple-two-file-graphics-library-for-C-Cplusplus
