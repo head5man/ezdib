@@ -194,7 +194,7 @@ static const unsigned char font_map_medium[] =
 
 };
 
-const char* ezd_next_glyph(const char* pGlyph)
+const unsigned char* ezd_next_glyph(const unsigned char* pGlyph)
 {
 	int sz;
 
@@ -224,7 +224,7 @@ const void* ezd_find_glyph(HEZDFONT x_pFt, const unsigned char ch)
 	return f->pIndex[ch];
 #else
 
-	const char* pGlyph = (const char*)x_pFt;
+	const unsigned char* pGlyph = (const signed char*)x_pFt;
 
 	// Find the glyph
 	while (pGlyph && *pGlyph)
@@ -334,8 +334,7 @@ HEZDFONT ezd_load_font(const void *x_pFt, int x_nFtSize, unsigned int x_uFlags, 
 	// Save font flags
 	p->uFlags = x_uFlags;
 	p->spacing = (x_uFlags >> EZD_FONT_FLAG_SPACING_POS) & EZD_FONT_FLAG_SPACING_MASK;
-	int len = 0;
-	
+		
 	if (x_pIdent)
 	{
 		strcpy(p->ID.fileID, x_pIdent->fileID);

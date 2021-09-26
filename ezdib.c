@@ -401,8 +401,47 @@ int ezd_save( HEZDIMAGE x_hDib, const char *x_pFile )
 	SImageData *p = (SImageData*)x_hDib;
 
 	// Sanity checks
-	if ( !x_pFile || !*x_pFile || !p || sizeof( SBitmapInfoHeader ) != p->bih.biSize || !p->pImage )
-		return _ERR( 0, "Invalid parameters" );
+	if ( !x_pFile || !*x_pFile || !p )
+		return _ERR( 1, "Invalid parameters" );
+
+	// User image conversion
+	if (!p->pImage)
+	{
+		if (!p->pfSetPixel)
+			return _ERR(2, "Invalid parameters");
+		int x, y, w, h;
+		w = EZD_ABS(p->bih.biWidth);
+		h = EZD_ABS(p->bih.biHeight);
+		HEZDIMAGE hdib = ezd_create(w, -h, 24, 0);
+		if (hdib)
+		{
+			//ezd_set_color_threshold(hdib, p->colThreshold);
+			//ezd_set_palette_color(hdib, 0, 0x000000);
+			//ezd_set_palette_color(hdib, 1, 0xffffff);
+			ezd_fill(hdib, 0);
+			// Write the Image data
+			for (y = 0; y < h; y++)
+			{
+				for (x = 0; x < w; x++)
+				{
+					// fastest hack reverse set function with negative flag
+					int pixel = p->pfSetPixel(p->pSetPixelUser, x, y, 0xffffff, -1);
+					if (pixel)
+						ezd_set_pixel(hdib, x, y, pixel);
+				}
+			}
+			ezd_save(hdib, x_pFile);
+			ezd_destroy(hdib);
+		}
+		else
+			return _ERR(0, "Could not allocate image");
+
+		return 1;
+	}
+	else if (sizeof(SBitmapInfoHeader) != p->bih.biSize)
+		return _ERR(3, "Invalid parameters");
+
+	
 
 	// Ensure packing is ok
 	if ( sizeof( SDIBFileHeader ) != 14 )
@@ -437,9 +476,13 @@ int ezd_save( HEZDIMAGE x_hDib, const char *x_pFile )
 	{	fclose( fh ); return _ERR( 0, "Error writing bitmap header" ); }
 
 	// Write the color palette if needed
-	if ( 0 < palette_size )
-		if ( sizeof( p->colPalette ) != fwrite( p->colPalette, 1, palette_size, fh ) )
-		{	fclose( fh ); return _ERR( 0, "Error writing palette" ); }
+	if (0 < palette_size)
+	{
+		if (sizeof(p->colPalette) != fwrite(p->colPalette, 1, palette_size, fh))
+		{
+			fclose(fh); return _ERR(0, "Error writing palette");
+		}
+	}
 
 	// Write the Image data
 	if ( p->bih.biSizeImage != fwrite( p->pImage, 1, p->bih.biSizeImage, fh ) )
@@ -457,7 +500,7 @@ int ezd_fill( HEZDIMAGE x_hDib, int x_col )
 	int w, h, sw, pw, x, y;
 	SImageData *p = (SImageData*)x_hDib;
 
-	if ( !p || !p || sizeof( SBitmapInfoHeader ) != p->bih.biSize
+	if ( !p || !p || sizeof( SBitmapInfoHeader ) != p->bih.biSize 
 		 || ( !p->pImage && !p->pfSetPixel ) )
 		return _ERR( 0, "Invalid parameters" );
 
@@ -649,8 +692,7 @@ int ezd_line( HEZDIMAGE x_hDib, int x1, int y1, int x2, int y2, int x_col )
 	// Check for user callback function
 	if ( p->pfSetPixel )
 	{
-		int mx = 0, my = 0, c = EZD_COMPARE_THRESHOLD( x_col, p->colThreshold );
-		static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+		int mx = 0, my = 0;
 
 		// Draw the line
 		while ( !done )
@@ -1284,10 +1326,10 @@ static void ezd_draw_bmp_cb( unsigned char *pImg, int x, int y, int sw, int pw,
 {
 	int w, h, lx = x;
 	unsigned char m = 0x80;
-	unsigned char r = col & 0xff;
-	unsigned char g = ( col >> 8 ) & 0xff;
-	unsigned char b = ( col >> 16 ) & 0xff;
-	static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+	//unsigned char r = col & 0xff;
+	//unsigned char g = ( col >> 8 ) & 0xff;
+	//unsigned char b = ( col >> 16 ) & 0xff;
+	//static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 	// Draw the glyph
 	for( h = 0; h < bh; h++ )
@@ -1327,9 +1369,9 @@ static void ezd_draw_bmp_1( unsigned char *pImg, int x, int y, int sw, int pw,
 {
 	int w, h, lx = x;
 	unsigned char m = 0x80;
-	unsigned char r = col & 0xff;
-	unsigned char g = ( col >> 8 ) & 0xff;
-	unsigned char b = ( col >> 16 ) & 0xff;
+	//unsigned char r = col & 0xff;
+	//unsigned char g = ( col >> 8 ) & 0xff;
+	//unsigned char b = ( col >> 16 ) & 0xff;
 	static unsigned char xm[] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 	// Draw the glyph

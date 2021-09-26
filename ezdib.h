@@ -406,7 +406,7 @@ extern "C"
 	/**
 		\return A pointer to the next glyph or zero if none
 	*/
-	const char* ezd_next_glyph( const char* pGlyph );	
+	const unsigned char* ezd_next_glyph( const unsigned char* pGlyph );	
 	
 	/// Searchs a font table for the specified glyph
 	/**
